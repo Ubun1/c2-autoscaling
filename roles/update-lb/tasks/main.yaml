@@ -1,0 +1,9 @@
+- name: update haproxy configs
+  template:
+    src: haproxy.cfg.j2
+    dest: /etc/haproxy/haproxy.cfg
+
+- name: add new backend host to haproxy
+  systemd:
+    name: haproxy
+    state: restarted

@@ -1,0 +1,25 @@
+---
+
+- name: install wrk dependencies
+  yum:
+    name: "{{ item }}"
+    state: present
+  loop:
+    - "@Development tools"
+    - "git"
+    - "openssl"
+
+- name: clone wrk repo
+  git:
+    repo: 'https://github.com/wg/wrk.git'
+    dest: /opt/wrk
+
+- name: build wrk
+  make:
+    chdir: /opt/wrk
+
+- name: install wrk
+  command: install wrk /usr/local/bin
+  args:
+    chdir: /opt/wrk
+

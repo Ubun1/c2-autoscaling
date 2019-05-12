@@ -1,0 +1,68 @@
+---
+
+- name: install dependencies
+  yum:
+    name: "{{ item }}"
+  loop:
+    - git
+    - docker
+    - epel-release
+
+- name: install pip
+  yum:
+    name: "{{ item }}"
+  loop:
+    - python36-pip
+    - python-pip
+
+- name: install python packages
+  pip:
+    name: virtualenv
+    state: latest
+    executable: pip3
+
+- name: git clone awx
+  git:
+    repo: 'https://github.com/ansible/awx.git'
+    dest: /opt/awx
+    clone: yes
+
+- name: Creates directory
+  file:
+    path: /opt/awx/.venv
+    state: directory
+
+- name: install python packages to venv
+  pip:
+    name: "{{ item }}"
+    virtualenv: /opt/awx/.venv
+    virtualenv_command: /usr/local/bin/virtualenv
+    virtualenv_python: python3
+  loop:
+    - docker
+    - docker-compose
+    - ansible
+
+- name: start docker
+  systemd:
+    name: docker
+    state: started
+
+- name: enable docker
+  systemd:
+    name: docker
+    enabled: yes
+
+- name: install awx
+  shell: cd "/opt/awx/" && source .venv/bin/activate && ansible-playbook -i installer/inventory installer/install.yml
+
+- name: install tower-cli
+  pip:
+    name: ansible-tower-cli
+
+- name: Template a file to /etc/files.conf
+  template:
+    src: tower_cli.j2
+    dest: /root/.tower_cli.cfg
+    owner: root
+    mode: '0644'

@@ -1,0 +1,8 @@
+{
+  "ec2": {
+    "croc": "api.cloud.croc.ru"
+  },
+  "cloudwatch": {
+    "croc":"monitoring.cloud.croc.ru"
+  }
+}

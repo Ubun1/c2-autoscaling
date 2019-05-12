@@ -1,0 +1,9 @@
+---
+
+- hosts: localhost
+  gather_facts: no
+  roles:
+    - create-instance
+  environment:
+    BOTO_CONFIG: "{{playbook_dir}}/boto.cfg"
+

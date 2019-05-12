@@ -1,0 +1,17 @@
+---
+
+- hosts: tag_role_awx
+  become: true
+  roles:
+    - wrk
+    - awx
+
+- hosts: tag_role_backend
+  become: true
+  roles:
+    - nginx
+
+- hosts: tag_role_haproxy
+  become: true
+  roles:
+    - haproxy

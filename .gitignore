@@ -1,0 +1,10 @@
+.venv/
+*.retry
+boto.log
+vendored/**
+**/.terraform
+**/terraform.tfstate*
+**/terraform.tfvars
+.vscode/
+**/vars/*
+**/private.key

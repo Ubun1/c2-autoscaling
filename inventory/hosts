@@ -1,0 +1,14 @@
+[backend:children]
+tag_role_backend
+
+[haproxy:children]
+tag_role_haproxy
+
+[tag_role_backend]
+
+[tag_role_haproxy]
+
+[awx:children]
+tag_role_awx
+
+[tag_role_awx]

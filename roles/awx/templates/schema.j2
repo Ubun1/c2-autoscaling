@@ -1,0 +1,11 @@
+- failure_nodes:
+  - id: 101
+    job_template: {{ destroy_instance.id }}
+    success_nodes:
+    - id: 102
+      job_template: {{ update_lb.id }}
+  id: 103
+  job_template: {{ create_instance.id }}
+  success_nodes:
+  - id: 104
+    job_template: {{ update_lb.id }}

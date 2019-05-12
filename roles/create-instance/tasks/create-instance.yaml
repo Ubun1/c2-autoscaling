@@ -1,0 +1,81 @@
+---
+
+- name: get alarm statuses
+  describe_alarms:
+    region: "croc"
+    alarm_name_prefix: "scaling-high"
+    alarm_state: "alarm"
+  register: describe_alarms_query
+
+- name: stop if no alarms fired
+  fail: 
+    msg: zero high alarms in alarm state
+  when: describe_alarms_query.meta | length == 0
+
+- name: create instance
+  ec2:
+    region: "croc"
+    wait: yes
+    state: present
+    count: 1
+    key_name: "{{ hostvars[groups['tag_role_backend'][0]].ec2_key_name }}"
+    instance_type: "{{ hostvars[groups['tag_role_backend'][0]].ec2_instance_type }}"
+    image: "{{ hostvars[groups['tag_role_backend'][0]].ec2_image_id }}"
+    group_id: "{{ hostvars[groups['tag_role_backend'][0]].ec2_security_group_ids }}"
+    vpc_subnet_id: "{{ hostvars[groups['tag_role_backend'][0]].ec2_subnet_id }}"
+    user_data: |
+      #!/bin/sh
+      sudo yum install epel-release -y
+      sudo yum install nginx -y
+      cat <<EOF > /etc/nginx/conf.d/dummy.conf
+      server {
+      listen 8080;
+        location / {
+          return 200 '{"message": "$HOSTNAME is up"}';
+          }
+       }
+      EOF
+      sudo systemctl restart nginx
+  register: new 
+
+- name: create tag entry
+  ec2_tag: 
+    ec2_url: "https://api.cloud.croc.ru"
+    region: croc
+    state: present
+    resource: "{{ item.id }}"
+    tags:
+      role: backend
+  loop: "{{ new.instances }}"
+
+- name: create low alarms
+  ec2_metric_alarm:
+    state: present
+    region: croc
+    name: "scaling-low_{{ item.id }}"
+    metric: "CPUUtilization"
+    namespace: "AWS/EC2"
+    statistic: Average
+    comparison: "<="
+    threshold: 15
+    period: 300
+    evaluation_periods: 3
+    unit: "Percent"
+    dimensions: {'InstanceId':"{{ item.id }}"}
+  loop: "{{ new.instances }}"
+
+- name: create high alarms
+  ec2_metric_alarm:
+    state: present
+    region: croc
+    name: "scaling-high_{{ item.id }}"
+    metric: "CPUUtilization"
+    namespace: "AWS/EC2"
+    statistic: Average
+    comparison: ">="
+    threshold: 80.0
+    period: 300
+    evaluation_periods: 3
+    unit: "Percent"
+    dimensions: {'InstanceId':"{{ item.id }}"}
+  loop: "{{ new.instances }}"

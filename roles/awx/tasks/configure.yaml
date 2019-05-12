@@ -1,0 +1,105 @@
+---
+
+- name: Create tower organization
+  tower_organization:
+    name: "scaling-org"
+    description: "scaling-org organization"
+    state: present
+
+- name: Add tower cloud credential
+  tower_credential:
+    name: cloud
+    description: croc cloud api creds
+    organization: scaling-org
+    kind: aws
+    state: present
+    username: "{{ croc_user }}"
+    password: "{{ croc_password }}"
+
+- name: Add tower github credential
+  tower_credential:
+    name: ghe
+    organization: scaling-org
+    kind: scm
+    state: present
+    username: "{{ ghe_user }}"
+    password: "{{ ghe_password }}"
+
+- name: Add tower ssh credential
+  tower_credential:
+    name: ssh
+    description: ssh creds
+    organization: scaling-org
+    kind: ssh
+    state: present
+    username: "ec2-user"
+    ssh_key_data: "{{ lookup('file', 'private.key') }}"
+
+- name: Add tower project
+  tower_project:
+    name: "auto-scaling"
+    scm_type: git
+    scm_credential: ghe
+    scm_url: "https://github.com/Ubun1/c2-autoscaling.git"
+    organization: "scaling-org"
+    scm_branch: paper-preview
+    state: present 
+
+- name: create inventory
+  tower_inventory:
+    name: dynamic-inventory
+    organization: "scaling-org"
+    state: present
+
+- name: copy inventory script to awx
+  copy: 
+    src: "{{ role_path }}/files/ec2.py"
+    dest: /root/ec2.py
+
+- name: create inventory source
+  shell: |
+    export SCRIPT=$(tower-cli inventory_script create -n "ec2-script" --organization "scaling-org" --script @/root/ec2.py | grep ec2 | awk '{print $1}')
+    tower-cli inventory_source create --update-on-launch True --credential cloud --source custom --inventory dynamic-inventory -n "ec2-source" --source-script $SCRIPT --source-vars '{"EC2_URL":"api.cloud.croc.ru","AWS_REGION": "croc"}' --overwrite True
+  
+- name: Create create-instance template
+  tower_job_template:
+    name: "create-instance"
+    job_type: "run"
+    inventory: "dynamic-inventory"
+    credential: "cloud"
+    project: "auto-scaling"
+    playbook: "create-instance.yaml"
+    state: "present"
+  register: create_instance
+
+- name: Create update-lb template
+  tower_job_template:
+    name: "update-lb"
+    job_type: "run"
+    inventory: "dynamic-inventory"
+    credential: "ssh"
+    project: "auto-scaling"
+    playbook: "update-lb.yaml"
+    state: "present"
+  register: update_lb
+
+- name: Create destroy-instance template
+  tower_job_template:
+    name: "destroy-instance"
+    job_type: "run"
+    inventory: "dynamic-inventory"
+    project: "auto-scaling"
+    credential: "cloud"
+    playbook: "destroy-instance.yaml"
+    state: "present"
+  register: destroy_instance
+
+- name: create workflow
+  tower_workflow_template:
+    name: auto_scaling
+    organization: scaling-org
+    schema: "{{ lookup('template', 'schema.j2')}}"
+
+- name: set scheduling
+  shell: |
+    tower-cli schedule create -n "3min" --workflow "auto_scaling" --rrule "DTSTART:$(date +%Y%m%dT%H%M%SZ) RRULE:FREQ=MINUTELY;INTERVAL=3"

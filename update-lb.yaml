@@ -1,0 +1,7 @@
+---
+
+- hosts: tag_role_haproxy
+  become: true
+  gather_facts: no
+  roles:
+    - update-lb
