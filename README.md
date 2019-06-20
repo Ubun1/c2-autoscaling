@@ -1,7 +1,7 @@
 ### Installation
 ```sh
 # Tested on Fedora 28
-git clone github.com/Ubun1/c2-autoscaling
+git clone https://github.com/Ubun1/c2-autoscaling.git
 cd c2-autoscaling
 mkdir .venv
 virtualenv .venv
