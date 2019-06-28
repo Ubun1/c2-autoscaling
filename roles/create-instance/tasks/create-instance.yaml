@@ -13,16 +13,18 @@
   when: describe_alarms_query.meta | length == 0
 
 - name: create instance
+  vars:
+    instance: "{{ hostvars[groups['tag_role_backend'][0]] }}"
   ec2:
     region: "croc"
     wait: yes
     state: present
     count: 1
-    key_name: "{{ hostvars[groups['tag_role_backend'][0]].ec2_key_name }}"
-    instance_type: "{{ hostvars[groups['tag_role_backend'][0]].ec2_instance_type }}"
-    image: "{{ hostvars[groups['tag_role_backend'][0]].ec2_image_id }}"
-    group_id: "{{ hostvars[groups['tag_role_backend'][0]].ec2_security_group_ids }}"
-    vpc_subnet_id: "{{ hostvars[groups['tag_role_backend'][0]].ec2_subnet_id }}"
+    key_name: "{{ instance.ec2_key_name }}"
+    instance_type: "{{ instance.ec2_instance_type }}"
+    image: "{{ instance.ec2_image_id }}"
+    group_id: "{{ instance.ec2_security_group_ids }}"
+    vpc_subnet_id: "{{ instance.ec2_subnet_id }}"
     user_data: |
       #!/bin/sh
       sudo yum install epel-release -y
