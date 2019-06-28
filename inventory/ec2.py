@@ -228,7 +228,7 @@ DEFAULTS = {
     'pattern_exclude': '',
     'pattern_include': '',
     'rds': 'False',
-    'regions': 'all',
+    'regions': 'croc',
     'regions_exclude': 'us-gov-west-1, cn-north-1',
     'replace_dash_in_groups': 'True',
     'route53': 'False',
@@ -590,12 +590,12 @@ class Ec2Inventory(object):
             connect_args['security_token'] = role.credentials.session_token
 
         conn = boto.ec2.EC2Connection(
-            aws_access_key_id=os.environ['AWS_ACCESS_KEY_ID'],
-            aws_secret_access_key=os.environ['AWS_SECRET_ACCESS_KEY'],
+            profile_name=self.boto_profile,
             region=boto.ec2.regioninfo.RegionInfo(
                 name='croc', endpoint="api.cloud.croc.ru"
-            ))
+        ))
 
+        #conn = module.connect_to_region(region, **connect_args)
         # connect_to_region will fail "silently" by returning None if the region name is wrong or not supported
         if conn is None:
             self.fail_with_error("region name: %s likely not supported, or AWS is down.  connection to region failed." % region)
@@ -1720,4 +1720,3 @@ class Ec2Inventory(object):
 if __name__ == '__main__':
     # Run the script
     Ec2Inventory()
-
