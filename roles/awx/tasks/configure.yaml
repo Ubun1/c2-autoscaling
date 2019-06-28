@@ -16,15 +16,6 @@
     username: "{{ croc_user }}"
     password: "{{ croc_password }}"
 
-- name: Add tower github credential
-  tower_credential:
-    name: ghe
-    organization: scaling-org
-    kind: scm
-    state: present
-    username: "{{ ghe_user }}"
-    password: "{{ ghe_password }}"
-
 - name: Add tower ssh credential
   tower_credential:
     name: ssh
@@ -39,7 +30,6 @@
   tower_project:
     name: "auto-scaling"
     scm_type: git
-    scm_credential: ghe
     scm_url: "https://github.com/Ubun1/c2-autoscaling.git"
     organization: "scaling-org"
     scm_branch: paper-preview
