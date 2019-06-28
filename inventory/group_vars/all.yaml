@@ -2,4 +2,3 @@ ansible_user: ec2-user
 ansible_ssh_common_args: >
   -o ProxyCommand="ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -W %h:%p -q {{ ansible_user }}@{{ hostvars[groups['tag_role_awx'][0]].ec2_public_dns_name }}"
   -o ForwardAgent=yes
-
