@@ -8,8 +8,30 @@
 
 - hosts: backend
   become: true
-  roles:
-    - nginx
+  tasks:
+  - name: install epel
+    yum:
+      name: epel-release
+  
+  - name: install nginx
+    yum:
+      name: nginx
+  
+  - name: configure nginx
+    shell: |
+        cat <<EOF > /etc/nginx/conf.d/dummy.conf
+        server {
+        listen 8080;
+          location / {
+            return 200 '{"message": "$HOSTNAME is up"}';
+            }
+         }
+        EOF
+
+  - name: add new backend host to haproxy
+    systemd:
+      name: nginx
+      state: restarted
 
 - hosts: haproxy
   become: true
