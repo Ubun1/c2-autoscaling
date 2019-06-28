@@ -1,34 +1,35 @@
+---
+
 - name: look for alarm status
   describe_alarms:
-    region: "croc"
-    alarm_name_prefix: "scaling-low"
-    alarm_state: "alarm"
+    region: croc
+    alarm_name_prefix: scaling-low
+    alarm_state: alarm
   register: describe_alarms_query
 
-- name: count alarmed instances
-  set_fact:
+- name: fail if no alarms
+  vars:
     alarmed_count: "{{ describe_alarms_query.meta | length }}"
-    alarmed_ids: "{{ describe_alarms_query.meta }}"
-
-- name: stop if no alarms
   fail:
     msg: no alarms fired
   when: alarmed_count | int == 0
 
-- name: count all described instances
-  set_fact: 
+- name: fail if only two instances remaining
+  vars:
     all_count: "{{ groups['tag_role_backend'] | length }}"
-
-- name: fail if last two instance remaining
   fail:
     msg: cant destroy last two instances
   when: all_count | int == 2
+
+- name: get alarmed instance_ids
+  set_fact:
+    alarmed_id: "{{ describe_alarms_query.meta[0].split('_')[1] }}"
 
 - name: destroy tags for marked instances
   ec2_tag:
     ec2_url: "https://api.cloud.croc.ru"
     region: croc
-    resource: "{{ alarmed_ids[0].split('_')[1] }}"
+    resource: "{{ alarmed_id }}"
     state: absent
     tags:
       role: backend
@@ -37,16 +38,13 @@
   ec2:
     region: croc
     state: absent
-    instance_ids: "{{ alarmed_ids[0].split('_')[1] }}"
+    instance_ids: "{{ alarmed_id }}"
 
-- name: destroy low alarms
+- name: destroy alarms
   ec2_metric_alarm:
     state: absent
     region: croc
-    name: "scaling-low_{{ alarmed_ids[0].split('_')[1] }}"
-
-- name: destroy high alarms
-  ec2_metric_alarm:
-    state: absent
-    region: croc
-    name: "scaling-high_{{ alarmed_ids[0].split('_')[1] }}"
+    name: "scaling-{{ item }}_{{ alarmed_id }}"
+  loop:
+    - low
+    - high
