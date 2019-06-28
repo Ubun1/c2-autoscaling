@@ -1,17 +1,25 @@
 ---
 
-- hosts: tag_role_awx
+- hosts: awx
   become: true
   roles:
     - wrk
     - awx
 
-- hosts: tag_role_backend
+- hosts: backend
   become: true
   roles:
     - nginx
 
-- hosts: tag_role_haproxy
+- hosts: haproxy
   become: true
   roles:
-    - haproxy
+    - update-lb
+  pre_tasks:
+    - name: install epel-release
+      yum:
+        name: epel-release
+
+    - name: install haproxy
+      yum:
+        name: haproxy
