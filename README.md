@@ -1,3 +1,9 @@
+### Prerequesits
+
+* Terrafor 0.10.x - 0.11.x 
+* Terraform aws provider > 2.x
+* aws cli > 1.1x
+
 ### Installation
 ```sh
 # Tested on Fedora 28
@@ -14,12 +20,14 @@ pip install -r requirements.txt
 
 ### Usage
 ```sh
-make prepare
+make deploy
+make tags
+make alarms
 # check instances up and running:
-AWS_ACCESS_KEY_ID="<access_key>" AWS_SECRET_ACCESS_KEY="<secret_key>" make ping
+AWS_PROFILE=<profile> make ping # whait untill all ping passed
 # deploy and configure awx
-AWS_ACCESS_KEY_ID="<access_key>" AWS_SECRET_ACCESS_KEY="<secret_key>" make deploy 
-# in case of errors try again:)
+AWS_PROFILE=<profile> make deploy 
+# in case of errors run again:)
 ```
 
 ### Monitoring
