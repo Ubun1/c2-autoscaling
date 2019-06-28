@@ -9,50 +9,72 @@ APLAYBOOK ?= $(VENV)ansible-playbook
 AGALAXY ?= $(VENV)ansible-galaxy
 PIP ?= .venv/bin/pip
 
+assert-command-present = $(if $(shell which $1),, $(error '$1' missing and needed to run this target))
+
 env:
 	$(PIP) install -r requirements.txt
 
 deploy: ; $(APLAYBOOK) -i inventory configure.yaml
 
-alarms-low:
-	for instance_id in $$(cd terraform && terraform output backend_id | tr ',' ' '); do \
-	        aws --profile $(PROFILE) --endpoint-url $(CLOUDWATCH_URL)\
-	            cloudwatch put-metric-alarm\
-	                --alarm-name "scaling-low_$$instance_id"\
-	                --dimensions Name=InstanceId,Value="$$instance_id"\
-	                --namespace "AWS/EC2" --metric-name CPUUtilization --statistic Average\
-	                --period 60 --evaluation-periods 3 --threshold 15 --comparison-operator LessThanOrEqualToThreshold; done
 
-alarms-high:
-	for instance_id in $$(cd terraform && terraform output backend_id | tr ',' ' '); do \
-	        aws --profile $(PROFILE) --endpoint-url $(CLOUDWATCH_URL)\
-	            cloudwatch put-metric-alarm\
-	            --alarm-name "scaling-high_$$instance_id"\
-	            --dimensions Name=InstanceId,Value="$$instance_id"\
-	            --namespace "AWS/EC2" --metric-name CPUUtilization --statistic Average\
-	            --period 60 --evaluation-periods 3 --threshold 80 --comparison-operator GreaterThanOrEqualToThreshold; done
+IDS != cd terraform && terraform output backend_id | tr ',' ' ' | tr -d '\n'
+
+# $1 - id
+# $2 - name
+# $3 - threshold
+# $4 - operator
+define ALARMS_SPECIFIC_CMD
+
+.PHONY: alarms-$(2)-$(1)
+alarms-$(2)-$(1): export _check = $(call assert-command-present, aws)
+alarms-$(2)-$(1):
+	aws --profile $(PROFILE) --endpoint-url $(CLOUDWATCH_URL) \
+		cloudwatch put-metric-alarm \
+		--alarm-name scaling-$(2)_$(1) \
+		--dimensions Name=InstanceId,Value=$(1) \
+		--namespace "AWS/EC2" --metric-name CPUUtilization --statistic Average \
+		--period 60 --evaluation-periods 3 --threshold $(3)  --comparison-operator $(4)
+endef
+
+$(foreach ID,$(IDS),$(eval $(call ALARMS_SPECIFIC_CMD,$(ID),low,15,GreaterThanThreshold)))
+$(foreach ID,$(IDS),$(eval $(call ALARMS_SPECIFIC_CMD,$(ID),high,80,LessThanThreshold)))
+
+alarms-low: $(foreach ID,$(IDS),alarms-low-$(ID))
+alarms-high: $(foreach ID,$(IDS),alarms-high-$(ID))
 
 alarms: alarms-low alarms-high
 
-tags-awx:
-	cd terraform && aws --profile $(PROFILE) --endpoint-url $(EC2_URL) \
-		ec2 create-tags --resources "$$(terraform output awx_id)" \
-		--tags Key=env,Value=auto-scaling Key=role,Value=awx
+TAGS=awx backend haproxy
 
-tags-backend:
-	cd terraform && for i in $$(terraform output backend_id | tr ',' ' '); do \
-		aws --profile $(PROFILE) --endpoint-url $(EC2_URL) \
-		ec2 create-tags --resources "$$i" \
-		--tags Key=env,Value=auto-scaling Key=role,Value=backend ; done; 
+define TAGS_CMD
 
-tags-haproxy:
-	cd terraform && for i in $$(terraform output haproxy_id | tr ',' ' '); do\
-		aws --profile $(PROFILE) --endpoint-url $(EC2_URL) \
-		ec2 create-tags --resources "$$i" \
-		--tags Key=env,Value=auto-scaling Key=role,Value=haproxy; done;
+tags-$(1): export _check = $(call assert-command-present, aws)
+tags-$(1): RESOURCE_IDS != cd terraform && terraform output $(1)_id | xargs -I % echo '"%"' | tr -d ',' | tr '\n' ' '
+tags-$(1):
+	aws --profile $(PROFILE) --endpoint-url $(EC2_URL) \
+		ec2 create-tags --resources $$(value RESOURCE_IDS) \
+		--tags Key=env,Value=auto-scaling Key=role,Value=$(1)
+endef
+
+$(foreach tag,$(TAGS),$(eval $(call TAGS_CMD,$(tag))))
 
 tags: tags-awx tags-backend tags-haproxy
 
+ping: ping-backend ping-awx ping-haproxy
+
+# $(1) - ansible group
+define PING_CMD
+
+ping-$(1):
+	$(ANSIBLE) -i inventory $(1) -m ping
+
+endef
+
+PINGS = backend haproxy awx
+
+$(foreach ping,$(PINGS),$(eval $(call PING_CMD,$(ping))))
+
+infra: export _check = $(call assert-command-present, terraform)
 infra:
 	cd terraform && yes yes | \
 		terraform apply \
@@ -60,17 +82,6 @@ infra:
 		-var material="$$(cat ~/.ssh/id_rsa.pub)"
 
 prepare: infra tags alarms
-
-ping: ping-backend ping-awx ping-haproxy
-
-ping-backend:
-	$(ANSIBLE) -i inventory backend -m ping
-
-ping-haproxy:
-	$(ANSIBLE) -i inventory haproxy -m ping
-
-ping-awx:
-	$(ANSIBLE) -i inventory awx -m ping
 
 create-instance:
 	$(APLAYBOOK) -i inventory create-instance.yaml
