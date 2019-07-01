@@ -1,3 +1,6 @@
+MAKEFILE_PATH := $(abspath $(lastword $(MAKEFILE_LIST)))
+MAKEFILE_DIR := $(dir $(MAKEFILE_PATH))
+
 EC2_URL ?= "https://api.cloud.croc.ru"
 CLOUDWATCH_URL ?= "https://monitoring.cloud.croc.ru"
 PROFILE ?= prod
@@ -16,8 +19,7 @@ env:
 
 deploy: ; $(APLAYBOOK) -i inventory configure.yaml
 
-
-IDS != cd terraform && terraform output backend_id | tr ',' ' ' | tr -d '\n'
+IDS != cd terraform && terraform output backend_id 2> /dev/null | tr ',' ' ' | tr -d '\n'
 
 # $1 - id
 # $2 - name
@@ -49,7 +51,7 @@ TAGS=awx backend haproxy
 define TAGS_CMD
 
 tags-$(1): export _check = $(call assert-command-present, aws)
-tags-$(1): RESOURCE_IDS != cd terraform && terraform output $(1)_id | xargs -I % echo '"%"' | tr -d ',' | tr '\n' ' '
+tags-$(1): RESOURCE_IDS != cd terraform && terraform output $(1)_id 2>/dev/null | xargs -I % echo '"%"' | tr -d ',' | tr '\n' ' '
 tags-$(1):
 	aws --profile $(PROFILE) --endpoint-url $(EC2_URL) \
 		ec2 create-tags --resources $$(value RESOURCE_IDS) \
@@ -113,3 +115,13 @@ remove-alarms:
 		tr -d '"' | tr -d ',' | \
 		xargs -I % aws --profile $(PROFILE) --endpoint-url $(CLOUDWATCH_URL) \
 		cloudwatch delete-alarms --alarm-names %
+
+create-binary-personal-dict:
+	@aspell --lang=en create master $(MAKEFILE_DIR).aspell/dict_bin < $(MAKEFILE_DIR).aspell/dict
+
+lint-cmt-msgs: create-binary-personal-dict
+	@git log --oneline HEAD...master | \
+		cut -d ' ' -f 2- | \
+		aspell --add-extra-dicts=$(MAKEFILE_DIR).aspell/dict_bin --master en list | \
+		sort -nr | \
+		uniq
