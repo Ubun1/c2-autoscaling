@@ -8,3 +8,4 @@ vendored/**
 .vscode/
 **/vars/*
 **/private.key
+.aspell/dict_bin
