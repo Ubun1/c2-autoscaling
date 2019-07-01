@@ -1,5 +1,14 @@
 ---
 
+- name: wait for awx running state
+  uri:
+    url: "http://127.0.0.1:80"
+    status_code: 200
+  register: result
+  until: result.status == 200
+  retries: 60
+  delay: 1
+
 - name: Create tower organization
   tower_organization:
     name: "scaling-org"
@@ -32,7 +41,7 @@
     scm_type: git
     scm_url: "https://github.com/Ubun1/c2-autoscaling.git"
     organization: "scaling-org"
-    scm_branch: paper-preview
+    scm_branch: master
     state: present 
 
 - name: create inventory
