@@ -109,10 +109,8 @@ remove-tags:
 remove-alarms:
 	aws --profile $(PROFILE) --endpoint-url $(CLOUDWATCH_URL) \
 		cloudwatch describe-alarms | \
-		grep -i alarmname | \
-		sort -nr | uniq | \
-		awk -F: '{print $$2}' | \
-		tr -d '"' | tr -d ',' | \
+		jq '.MetricAlarms | .[] | select(.AlarmName|test("scaling.")) | .AlarmName' | \
+		tr -d '"' | \
 		xargs -I % aws --profile $(PROFILE) --endpoint-url $(CLOUDWATCH_URL) \
 		cloudwatch delete-alarms --alarm-names %
 
