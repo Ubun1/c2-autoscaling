@@ -19,7 +19,7 @@ jmespath==0.9.4
 lazy-object-proxy==1.4.1
 MarkupSafe==1.1.1
 mccabe==0.6.1
-paramiko==2.4.2
+paramiko==2.10.1
 pyasn1==0.4.5
 pycparser==2.19
 pylint==1.9.4
